@@ -523,7 +523,7 @@ def main(args):
 
 
         # call force checkout on it
-        outpath = args.output_file
+        outpath = args.log_file_address
         print(outpath)
 
 
@@ -545,11 +545,9 @@ def main(args):
     perform_checkout(urls, outpath)
 
     # extract merchant IDs
-    final_outpath = outpath.replace('log_20', 'merch-info_20').replace('.jsonl', '.json')
+    final_outpath = outpath.replace('log', 'merch-info').replace('.jsonl', '.json')
     parse_data(outpath, final_outpath)
 
-def test_func(url):
-    print(run_fc([1, [url]], 0), file=open('./test.json', 'w'))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Optional app description')
@@ -557,12 +555,6 @@ if __name__ == '__main__':
     parser.add_argument('--input_bp', type=str, help='input containing bp results', required=False)
     parser.add_argument('--input_ec', type=str, help='input containing shopping classifier result', required=False)
     parser.add_argument('--url', type=str, help='url to checkout', required=False)
-    parser.add_argument('--output_file', type=str, help='outputfile is a jsonl', required=True)
+    parser.add_argument('--log_file_address', type=str, help='outputfile is a jsonl', required=True)
     args = parser.parse_args()
     main(args)
-
-    # 'https://scoutnuseful.com', 'https://holyncrowd.com', 'https://genuinencorner.com', 'https://www.ateezofficial.com', 'https://1stlicensez.com', 'https://jurelay.com', 
-    # for i in ['https://www.urdreamlife.co.uk', 'https://scoutnuseful.com', 'https://holyncrowd.com', 'https://genuinencorner.com', 'https://www.ateezofficial.com', 'https://1stlicensez.com', 'https://jurelay.com', 'https://stayspiky.com']:
-    # for i in ['https://pov-glasses.com']:
-    #     # rid = random.randint(0, len(domains) - 1)
-    #     test_func(i)
