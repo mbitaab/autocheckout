@@ -386,7 +386,7 @@ def checkout_wordpress(domain, driver,f_log):
     for index, handle in enumerate(driver.window_handles):
         # save checkout page source
         driver.switch_to.window(handle)
-        with open("/app/data/sources/" + domain.replace('/', '_').replace(':', '_') + str(index) + '.html', "w", encoding='utf-8') as f:
+        with open(args.html_file_address + domain.replace('/', '_').replace(':', '_') + str(index) + '.html', "w", encoding='utf-8') as f:
             f.write(driver.page_source)
         log_entries.append(driver.get_log('performance'))
         log_entries.append(driver.current_url)
@@ -444,7 +444,7 @@ def run_fc(data_pack):
 
                 time.sleep(4)
                 f_log.write("[*]Get Domain Done"+"\n")
-                driver.save_screenshot('/app/data/screenshots/' + domain.replace('/', '_').replace(':', '_') + '.png')
+                driver.save_screenshot(args.screen_file_address + domain.replace('/', '_').replace(':', '_') + '.png')
                 log = checkout_wordpress(domain, driver,f_log)
                 f_log.write("[*]Checkout Done"+"\n")
                 f_log.flush()
@@ -524,7 +524,7 @@ def main(args):
 
 
         # call force checkout on it
-        outpath = args.log_file_address
+        outpath = args.p_log_file_address
         print(outpath)
 
 
@@ -556,6 +556,9 @@ if __name__ == '__main__':
     parser.add_argument('--input_bp', type=str, help='input containing bp results', required=False)
     parser.add_argument('--input_ec', type=str, help='input containing shopping classifier result', required=False)
     parser.add_argument('--url', type=str, help='url to checkout', required=False)
-    parser.add_argument('--log_file_address', type=str, help='outputfile is a jsonl', required=True)
+    parser.add_argument('--log_file_address', type=str, help='log file address', required=True)
+    parser.add_argument('--p_log_file_address', type=str, help='log file address', required=True)
+    parser.add_argument('--screen_file_address', type=str, help='screenshot dir', required=True)
+    parser.add_argument('--html_file_address', type=str, help='screenshot dir', required=True)
     args = parser.parse_args()
     main(args)
