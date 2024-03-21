@@ -400,7 +400,8 @@ def run_fc(data_pack):
     results = []
     print('Hi, I\'m process number %d' %my_id)
     c_date = datetime.today().strftime('%Y_%m_%d')
-    f_log = open(f"/app/data/log/logs_{c_date}_{my_id}.log" , "w")
+    #f_log = open(f"/app/data/log/logs_{c_date}_{my_id}.log" , "w")
+    f_log = open(args.log_file_address,"w")
     iterator = tqdm(urls) if my_id == 0 else urls
 
     for domain in iterator:
