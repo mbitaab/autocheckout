@@ -403,9 +403,7 @@ def run_fc(data_pack):
     #f_log = open(f"/app/data/log/logs_{c_date}_{my_id}.log" , "w")
     f_log = open(args.log_file_address,"w")
     iterator = tqdm(urls) if my_id == 0 else urls
-
     for domain in iterator:
-
         d = DesiredCapabilities.CHROME
         d['goog:loggingPrefs'] = { 'performance':'ALL', 'browser':'ALL' }
         options = uc.ChromeOptions()
@@ -426,14 +424,20 @@ def run_fc(data_pack):
             # driver = webdriver.Chrome(options=options)
         except Exception as e:
             print('Remote Error:', e)
+            f_log.write(f"[+] Remote Error {e}"+"\n")
+            f_log.flush()
             continue
-
+        f_log.write(f"[+] if domain {domain}"+"\n")
+        f_log.flush()
         if domain:
             try:
                 if 'https://' not in domain:
                     domain = 'https://' + domain
                 f_log.write(f"[+]{domain}"+"\n")
                 print(domain)
+                f_log.write(f"[+] domain {domain}"+"\n")
+                f_log.flush()
+
                 driver.get(domain)
                 try:
                     action = ActionChains(driver)
@@ -540,9 +544,11 @@ def main(args):
                 urls.append(row[1]['URL'])
 
     elif args.url:
+        outpath = args.p_log_file_address
         urls.append(args.url)
        
-
+    print(f"url : {args.url}")
+    print(f"url : {args.p_log_file_address}")
     perform_checkout(urls, outpath)
 
     # extract merchant IDs
