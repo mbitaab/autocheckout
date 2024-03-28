@@ -5,7 +5,7 @@ import re
 import sys
 
 
-def create_merch_info(domains, outpath):
+def create_merch_info(domains, outpath,source_dir):
   
     res = [
         r'"(merchantID|payerID)".+?"([A-Z0-9]{13})"',
@@ -21,7 +21,7 @@ def create_merch_info(domains, outpath):
         source_fname = domain.replace('https://', 'https___')
         if 'georigia' in source_fname:
             print(source_fname)
-        source_dir = '/app/data/sources'
+        
         source_path = None
 
         # open the related source path
@@ -50,7 +50,7 @@ def create_merch_info(domains, outpath):
     json.dump(domain_red, open(outpath, 'w'), indent=4)
 
 
-def parse_data(infile, outpath):
+def parse_data(infile, outpath, source_dir):
     
     fin = open(infile, 'r')
     print(infile, '....')
@@ -59,5 +59,5 @@ def parse_data(infile, outpath):
         line = line.strip()
         line_dict = json.loads(line)
         domains.append(line_dict['domain'])
-    create_merch_info(domains, outpath)
+    create_merch_info(domains, outpath, source_dir)
 

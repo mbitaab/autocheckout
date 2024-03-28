@@ -553,7 +553,7 @@ def main(args):
 
     # extract merchant IDs
     final_outpath = outpath.replace('log', 'merch-info').replace('.jsonl', '.json')
-    parse_data(outpath, final_outpath)
+    parse_data(outpath, final_outpath,args.html_file_address)
 
 
 if __name__ == '__main__':
