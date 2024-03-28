@@ -37,6 +37,7 @@ def create_merch_info(domains, output_path,checkout_html_dir):
                         results = re.findall(r, line2)
                         if results:
                             for mid in set(results):
+                                print(f"MERCHANTID:{mid[1]}")
                                 merchant_ids[i].append(mid[1])
             else:
                 continue
