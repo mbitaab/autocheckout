@@ -5,7 +5,7 @@ import re
 import sys
 
 
-def create_merch_info(domains, outpath,source_dir):
+def create_merch_info(domains, output_path,checkout_html_dir):
   
     res = [
         r'"(merchantID|payerID)".+?"([A-Z0-9]{13})"',
@@ -26,7 +26,7 @@ def create_merch_info(domains, outpath,source_dir):
 
         # open the related source path
         for i in range(2):
-            source_path = os.path.join(source_dir, source_fname+ str(i) + '.html')
+            source_path = os.path.join(checkout_html_dir, source_fname+ str(i) + '.html')
             if os.path.exists(source_path):
                
                 f = open(source_path, 'r')
@@ -47,17 +47,29 @@ def create_merch_info(domains, outpath,source_dir):
             domain_red[domain] = tmp
                                     
 
-    json.dump(domain_red, open(outpath, 'w'), indent=4)
+    json.dump(domain_red, open(output_path, 'w'), indent=4)
 
+"""
+Parse Redirection log and Checkout Page
 
-def parse_data(infile, outpath, source_dir):
+This function processes the performancelog log and the checkout pages HTML to extract the merchantID.
+
+Parameters:
+performance_log (string): The file path to `performancelog.jsonl`
+output_path (string): The file path where the extracted merchantID will be saved.
+checout_html_dir (String): The directory path where checkout page HTML files are stored
+
+Returns:
+None
+"""
+def parse_data(performance_log, output_path, checkout_html_dir):
     
-    fin = open(infile, 'r')
-    print(infile, '....')
+    fin = open(performance_log, 'r')
+    print(performance_log, '....')
     domains = []
     for line in fin.readlines():
         line = line.strip()
         line_dict = json.loads(line)
         domains.append(line_dict['domain'])
-    create_merch_info(domains, outpath, source_dir)
+    create_merch_info(domains, output_path, checkout_html_dir)
 
