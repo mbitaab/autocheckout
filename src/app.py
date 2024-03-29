@@ -502,6 +502,12 @@ def perform_checkout(urls, out_file):
             fout.write(result + '\n')
         fout.close()
 
+def read_txt_file(fpath, out_list):
+    with open(fpath, 'r') as file:
+        # Iterate over each line in the file
+        for line in file:
+            out_list.append(line.strip())
+    return out_list
 
 def clean_url(url):
     # Regular expression pattern to match and remove the desired prefixes
@@ -514,41 +520,27 @@ def main(args):
 
     urls= []
 
-    if args.input_bp and args.input_ec:
+    if args.url:
+        urls.append(args.url)
+
+    elif args.input_bp and args.input_ec == None:
+        urls = read_txt_file(args.input_bp)
+
+    elif args.input_bp and args.input_ec:
+
         df_scam = pd.read_csv(args.input_bp)
         df_scam['URL'] = df_scam['URL'].apply(clean_url)
-
         df_shop = pd.read_csv(args.input_ec)
         df_shop['URL'] = df_shop['URL'].apply(clean_url)
 
         df_filtered = df_scam[df_scam['Label'] == 'scam'].merge(df_shop[df_shop['label'] == 'shop'], on='URL')
-   
+        urls = df_filtered.tolist()
         print('df filtered length: %s' %len(df_filtered))
-            
 
-
-        # call force checkout on it
-        outpath = args.p_log_file_address
-        print(outpath)
-
-
-        # check output file for existing domains
-        visited_domains = []
-        if os.path.exists(outpath):
-            with open(outpath, 'r') as fin:
-                for line in fin.readlines():
-                    visited_domains.append(json.loads(line.strip())['domain'] )
-
-        for row in df_filtered.iterrows():
-            if row[1]['URL'] not in visited_domains:
-                urls.append(row[1]['URL'])
-
-    elif args.url:
-        outpath = args.p_log_file_address
-        urls.append(args.url)
+    outpath = args.p_log_file_address
        
     print(f"url : {args.url}")
-    print(f"url : {args.p_log_file_address}")
+    print(f"output path : {args.p_log_file_address}")
     perform_checkout(urls, outpath)
 
     # extract merchant IDs
