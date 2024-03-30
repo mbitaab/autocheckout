@@ -502,7 +502,8 @@ def perform_checkout(urls, out_file):
             fout.write(result + '\n')
         fout.close()
 
-def read_txt_file(fpath, out_list):
+def read_txt_file(fpath):
+    out_list = []
     with open(fpath, 'r') as file:
         # Iterate over each line in the file
         for line in file:
