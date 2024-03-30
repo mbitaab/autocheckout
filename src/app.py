@@ -327,7 +327,7 @@ def checkout_wordpress(domain, driver,f_log):
                             else:
                                 print('PYPL BTN')
                                 f_log.write(f"[*]paypal btn "+"\n")
-                                #driver.save_screenshot('../../tesssssstP3.png')
+                                driver.save_screenshot(args.screen_file_address + domain.replace('/', '_').replace(':', '_') + '.png')
                                 time.sleep(10)
                                 btn.click()
                                 flag = True
@@ -448,7 +448,7 @@ def run_fc(data_pack):
 
                 time.sleep(4)
                 f_log.write("[*]Get Domain Done"+"\n")
-                driver.save_screenshot(args.screen_file_address + domain.replace('/', '_').replace(':', '_') + '.png')
+                #driver.save_screenshot(args.screen_file_address + domain.replace('/', '_').replace(':', '_') + '.png')
                 log = checkout_wordpress(domain, driver,f_log)
                 f_log.write("[*]Checkout Done"+"\n")
                 f_log.flush()
