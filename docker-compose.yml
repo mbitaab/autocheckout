@@ -32,7 +32,7 @@ services:
     depends_on:
       - selenium-grid
     environment:
-      SELENIUM_ADDRESS: "http://10.90.78.133:4450"
+      SCAMAGNIFIER_EXT_SELENIUM_ADDRESS: "http://10.90.78.133:4450"
     volumes:
       - volume_domain_fe:/app/data
     networks:
