@@ -61,7 +61,7 @@ info = {
 
 _sleep_time = 3
 _sleep_time_dialog = 3
-
+ 
 def write_log(file,data,verbose=True):
     if verbose:
         current_date_time=datetime.now()
