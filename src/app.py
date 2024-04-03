@@ -57,7 +57,27 @@ info = {
     'zipcode': '95540',
     'phone': '7077261518'
 }
-
+keys = {
+    'id': 'name',
+    'name': 'name',
+    'first': 'first',
+    'last': 'last',
+    'address': 'address',
+    'city': 'city',
+    'cty': 'city',
+    'town': 'city',
+    'zip': 'zipcode',
+    'postcode': 'zipcode',
+    'postalCode': 'zipcode',
+    'postalcode': 'zipcode',
+    'phone': 'phone',
+    'email': 'email',
+    'state': 'state',
+    'zone': 'state',
+    'country': 'country',
+    'addr': 'address',
+}
+    
 
 _sleep_time = 3
 _sleep_time_dialog = 3
@@ -113,18 +133,13 @@ def checkout_shop(domain, driver,f_log):
                 pass
 
     write_log(f_log,"start finding links")
-    # get prod links
-
     links = []
-    write_log(f_log,"first attempt")
     links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('/product'))])
     links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//link[contains(@href, \"%s\")]" % ('/product'))])
-    write_log(f_log,"second attempts")
     links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('?product'))])
-    write_log(f_log,"third attempts")
     if links == []:
         links = []
-        shallow_filter = ['/about', '/cart', '/track', '/contact', '/privacy', '/policy', '/terms', '/refund']
+        shallow_filter = ['/about', '/cart', '/track', '/contact', '/privacy', '/policy', '/terms', '/refund', '/login', '/?']
         for e in driver.find_elements("xpath", "//a"):
             link = e.get_attribute('href')
             avoid = False
@@ -150,13 +165,13 @@ def checkout_shop(domain, driver,f_log):
             driver.get(prod_link)
             
             try:
-                write_log(f_log,f"Close seconf popup")
+                write_log(f_log,f"Close second popup")
                 time.sleep(_sleep_time_dialog)
                 actions = ActionChains(driver)
                 actions.move_by_offset(100, 100).click().perform()
                 write_log(f_log,f"Popup is closed")
             except Exception as e:
-                write_log(f_log,f"Error clicking the second popup] button")
+                write_log(f_log,f"Error clicking the second popups button")
             
             time.sleep(randint(1, _sleep_time))
 
@@ -176,40 +191,10 @@ def checkout_shop(domain, driver,f_log):
             write_log(f_log,f"An error occurce : {e}")
             pass
 
-    # proceed to checkout
-    try:
-        write_log(f_log,f"Looking for checkout")
-        checkout_elem = search_elem(driver, ['//button', '//a'], ['checkout', 'check out', 'view cart', 'proceed to checkout','Finalizar compra', 'Voir mon panier', 'mon panier', 'Finaliser ma commande', 'Procedi all\'acquisto', 'Vai al carrello'])
-        if checkout_elem:
-            checkout_elem.click()
-        time.sleep(randint(3,5))
-    except Exception as e:
-        write_log(f_log,f"An error occure in checkout : {e}")
 
-    # fill out the form
-    keys = {
-        'id': 'name',
-        'name': 'name',
-        'first': 'first',
-        'last': 'last',
-        'address': 'address',
-        'city': 'city',
-        'cty': 'city',
-        'town': 'city',
-        'zip': 'zipcode',
-        'postcode': 'zipcode',
-        'postalCode': 'zipcode',
-        'postalcode': 'zipcode',
-        'phone': 'phone',
-        'email': 'email',
-        'state': 'state',
-        'zone': 'state',
-        'country': 'country',
-        'addr': 'address',
-    }
-    
-    # swith to paypal iframe
-    write_log(f_log,f"swith to paypal iframe")
+    # if paypal iframe exist swith to paypal iframe
+    write_log(f_log,f"looking for paypal button in the product page")
+    write_log(f_log,f"first, swith to paypal iframe if exists")
     driver.switch_to.default_content()
     iframes = driver.find_elements("xpath", "//iframe[contains(@name, 'paypal') or contains(@id, 'paypal')]")
     if iframes:
@@ -222,7 +207,8 @@ def checkout_shop(domain, driver,f_log):
             except Exception as e:
                 write_log(f_log,f"An error occure in swith to paypal iframe : {e}")
                 pass
-    
+
+    # try to find and click paypal button
     if not flag:
         write_log(f_log,f"Start looking paypal (1)")
         for paypal_filter in ['//img[contains(@alt, "PayPal")]', '//div[contains(@role, "link")]', '//div[contains(@class, "paypal-button-number-0")]', '//a[contains(@href, "paypal")]', '//div[contains(@class, "paypal")]']:
@@ -236,7 +222,7 @@ def checkout_shop(domain, driver,f_log):
                             write_log(f_log,f"paypal link (1)")
                             break
                         else:
-                            write_log(f_log,f"paypal link (2)")
+                            write_log(f_log,f"paypal button (1)")
                             driver.save_screenshot(args.screen_file_address + domain.replace('/', '_').replace(':', '_') + '.png')
                             btn.click()
                             flag = True
@@ -254,39 +240,78 @@ def checkout_shop(domain, driver,f_log):
                 pass
 
         write_log(f_log,f"flag : {flag}")
-        if flag is False:
-            write_log(f_log,f"Not found paypal yet , try another method")
-            write_log(f_log,f"Filling form")
-            for i in range(1):
+
+    # proceed to checkout
+    if not flag:
+        try:
+            write_log(f_log,f"Looking for checkout")
+            checkout_elem = search_elem(driver, ['//button', '//a'], ['checkout', 'check out', 'view cart', 'proceed to checkout','Finalizar compra', 'Voir mon panier', 'mon panier', 'Finaliser ma commande', 'Procedi all\'acquisto', 'Vai al carrello'])
+            if checkout_elem:
+                checkout_elem.click()
+            time.sleep(randint(3,5))
+        except Exception as e:
+            write_log(f_log,f"An error occure in checkout : {e}")
+
+
+    if not flag:
+        write_log(f_log,f"Start looking paypal button at checkout page")
+        for paypal_filter in ['//img[contains(@alt, "PayPal")]', '//div[contains(@role, "link")]', '//div[contains(@class, "paypal-button-number-0")]', '//a[contains(@href, "paypal")]', '//div[contains(@class, "paypal")]']:
                 try:
-                    all_inputs = driver.find_elements("xpath", '//input')
-                    for inp in all_inputs:
+                    paypal_buttons = driver.find_elements("xpath", paypal_filter)
+                    for btn in paypal_buttons:
                         try:
-                            for k, v in keys.items():
-                                if k in inp.get_attribute('id').lower() or k in inp.get_attribute('name').lower():
-                                    inp.clear()
-                                    inp.send_keys(info[v])
+                            if '//a' in paypal_filter:
+                                driver.get(btn.get_attribute('href'))
+                                write_log(f_log,f"paypal link (2)")
+                                flag = True
+                                break
+                            else:
+                                write_log(f_log,f"paypal btn (2)")
+                                driver.save_screenshot(args.screen_file_address + domain.replace('/', '_').replace(':', '_') + '.png')
+                                btn.click()
+                                flag = True
+                                break
+                            # break
                         except Exception as e:
-                            write_log(f_log,f"internal error in filling form : {e}")
+                            write_log(f_log,f"error : {e}")
+                            pass
+                        if flag:
+                            time.sleep(_sleep_time)
                             break
-                        
-                    all_selects = driver.find_elements(By.XPATH, "//select")
-                    for select in all_selects:
-                        select_ok = Select(select)
-                        if 'state' in select.get_attribute('name').lower() or 'zone' in select.get_attribute('name').lower():
-                            select_ok.select_by_value(info['state'])
-                        elif 'country' in select.get_attribute('name').lower():
-                            select_ok.select_by_value(info['country'])
-                except Exception as ex:
-                    write_log(f_log,f"Error : {ex}")
-                finally:
-                    time.sleep(_sleep_time)
+                    if flag:
+                        break
+                except Exception as e:
+                    write_log(f_log,f"error in Filter: {e}")
+                    pass
+        write_log(f_log,f"Not found paypal yet , fill the form")
 
-            # try to find and click paypal button
-            # click on paypal text!
-            # Define the pattern for PayPal text with small and capital P
+    if not flag:
+        for i in range(1):
+            try:
+                all_inputs = driver.find_elements("xpath", '//input')
+                for inp in all_inputs:
+                    try:
+                        for k, v in keys.items():
+                            if k in inp.get_attribute('id').lower() or k in inp.get_attribute('name').lower():
+                                inp.clear()
+                                inp.send_keys(info[v])
+                    except Exception as e:
+                        write_log(f_log,f"internal error in filling form : {e}")
+                        break
+                    
+                all_selects = driver.find_elements(By.XPATH, "//select")
+                for select in all_selects:
+                    select_ok = Select(select)
+                    if 'state' in select.get_attribute('name').lower() or 'zone' in select.get_attribute('name').lower():
+                        select_ok.select_by_value(info['state'])
+                    elif 'country' in select.get_attribute('name').lower():
+                        select_ok.select_by_value(info['country'])
+            except Exception as ex:
+                write_log(f_log,f"Error : {ex}")
+            finally:
+                time.sleep(_sleep_time)
 
-            # special form of PayPal 
+        # special form of PayPal 
             write_log(f_log,f"Find paypal span")
             try:
                 possible_paypal_chks = ["//span[contains(text(), 'PayPal')]", "//span[contains(text(), 'paypal')]"]
@@ -298,40 +323,23 @@ def checkout_shop(domain, driver,f_log):
                             write_log(f_log,f"click paypal span btn")
             except Exception as ex:
                 write_log(f_log,f"Error : {ex}")
-
-
-
-            write_log(f_log,f"Start looking paypal (2)")
-            for paypal_filter in ['//img[contains(@alt, "PayPal")]', '//div[contains(@role, "link")]', '//div[contains(@class, "paypal-button-number-0")]', '//a[contains(@href, "paypal")]', '//div[contains(@class, "paypal")]']:
-                    try:
-                        paypal_buttons = driver.find_elements("xpath", paypal_filter)
-                        for btn in paypal_buttons:
-                            try:
-                                if '//a' in paypal_filter:
-                                    driver.get(btn.get_attribute('href'))
-                                    write_log(f_log,f"paypal link (1)")
-                                    flag = True
-                                    break
-                                else:
-                                    write_log(f_log,f"paypal link (2)")
-                                    driver.save_screenshot(args.screen_file_address + domain.replace('/', '_').replace(':', '_') + '.png')
-                                    btn.click()
-                                    flag = True
-                                    break
-                                # break
-                            except Exception as e:
-                                write_log(f_log,f"error : {e}")
-                                pass
-                            if flag:
-                                time.sleep(_sleep_time)
-                                break
-                        if flag:
-                            break
-                    except Exception as e:
-                        write_log(f_log,f"error in Filter: {e}")
-                        pass
                     
-                    
+
+    if not flag:
+        # perform general checkout
+        for chk in ["//form[contains(@id, 'checkout')]", "//form[contains(@type, 'submit')]"]:
+            elems = driver.find_elements("xpath", chk)
+            if elems:
+                e[0].submit()
+                flag = True
+                break
+            
+    if not flag:
+        s = """var form = document.querySelector("form[id*=checkout]");
+        if (form) { form.submit(); }"""
+        driver.execute_script(s) 
+
+        
         driver.switch_to.default_content()
         if not flag and driver.find_elements("xpath", "//iframe"):
             write_log(f_log,f"looking for iframe")
@@ -343,26 +351,12 @@ def checkout_shop(domain, driver,f_log):
                 except Exception as ex:
                     write_log(f_log,f"erro in looking for iframe {ex}")
                     pass
-                
-                
+                        
         write_log(f_log,f"flag : {flag}")
-        #have no idea about this part , please check later!!
-        if not flag:
-            # perform general checkout
-            for chk in ["//form[contains(@id, 'checkout')]", "//form[contains(@type, 'submit')]"]:
-                elems = driver.find_elements("xpath", chk)
-                if elems:
-                    e[0].submit()
-                    flag = True
-                    break
-                
-        if not flag:
-            s = """var form = document.querySelector("form[id*=checkout]");
-            if (form) { form.submit(); }"""
-            driver.execute_script(s)
+
     
     time.sleep(_sleep_time)
-    write_log(f_log,f"final ...")
+    write_log(f_log,f"finally ...")
     # -------------------------------------------------
     log_entries = []
     write_log(f_log,f"save windows.")
