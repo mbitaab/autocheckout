@@ -120,7 +120,6 @@ def search_elem(driver, xpath_str, text_list, single=True):
                     for e_text in elem_text:
                         if text.lower() in e_text:
                             if single: return elem
-                            print(e_text)
                             res.append(elem)            
     return None if single else res
 
@@ -523,7 +522,6 @@ def perform_checkout(urls, out_file):
     # results = [ [r1, r2, ...], [r1, r2, ...] ... ]
     with open(out_file, 'a+') as fout:
         for result in results:
-            print(result)
             fout.write(result + '\n')
         fout.close()
 
