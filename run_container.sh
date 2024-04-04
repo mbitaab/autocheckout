@@ -9,5 +9,4 @@ docker run -d \
     --p_log_file_address /app/data/test_2024-03-29.jsonl \
     --log_file_address /app/data/test_2024-03-29.log \
     --html_file_address /app/data/ \
-    --screen_file_address /app/data/ \
-
+    --screen_file_address /app/data/

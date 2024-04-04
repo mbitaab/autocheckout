@@ -90,21 +90,25 @@ def write_log(file,data,verbose=True):
         file.write(current_date_time_str+"||"+data+"\n")
         file.flush()
 
-def search_elem(driver, xpath_str, text_list):
+def search_elem(driver, xpath_str, text_list, single=True):
+    res = []
+
     if type(xpath_str) is str:
         # get all of the buttons and check their text
         elems = driver.find_elements("xpath", xpath_str)
         for elem in elems:
             elem_text = elem.text
-            for btn_text in text_list:
-                if btn_text in elem_text.lower().strip():
-                    return elem
+            for text in text_list:
+                if text.lower() in elem_text.lower().strip():
+                    if single: return elem
+                    res.append(elem)  
     else:
         # get all of the buttons and check their text
         for search_xpath in xpath_str:
             elems = driver.find_elements("xpath", search_xpath)
-            elem_text = []
+            
             for elem in elems:
+                elem_text = []
                 if elem.text.lower().strip():
                     elem_text.append(elem.text.lower().strip())
                 if not elem_text:
@@ -112,14 +116,33 @@ def search_elem(driver, xpath_str, text_list):
                     for item in inner_elements:
                         if item.text.lower().strip():    
                             elem_text.append(item.text.lower().strip())
-                for btn_text in text_list:
-                    if btn_text in elem_text:
-                        return elem                
-    return None
+                for text in text_list:
+                    for e_text in elem_text:
+                        if text.lower() in e_text:
+                            if single: return elem
+                            print(e_text)
+                            res.append(elem)            
+    return None if single else res
+
+def shallow_filter(raw_links, domain):
+    # shallow filter on urls
+    links = []
+    shallow_filter = ['/search', '/story', '/live', '/help', '/email', '/account', '/cookie', '/about', '/cart', '/track', '/contact', '/privacy', '/policy', '/terms', '/refund', '/login', '/bag']
+    for link in raw_links:
+        avoid = False
+        for s in shallow_filter:
+            if s in link:
+                avoid = True
+                break
+        if not avoid and domain in link:
+            links.append(link)
+    return links
 
 def checkout_shop(domain, driver,f_log):
     write_log(f_log,"checkout_shop")
     flag = False
+
+    time.sleep(5)
 
     # check for popups
     write_log(f_log,"Search for popup")
@@ -133,33 +156,41 @@ def checkout_shop(domain, driver,f_log):
                 pass
 
     write_log(f_log,"start finding links")
-    links = []
-    links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('/product'))])
-    links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//link[contains(@href, \"%s\")]" % ('/product'))])
-    links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('?product'))])
+    raw_links = []
+    raw_links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('/product'))])
+    raw_links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//link[contains(@href, \"%s\")]" % ('/product'))])
+    raw_links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('?product'))])
+    links = shallow_filter(raw_links, domain)
+
     if links == []:
-        links = []
-        shallow_filter = ['/about', '/cart', '/track', '/contact', '/privacy', '/policy', '/terms', '/refund', '/login', '/?']
         for e in driver.find_elements("xpath", "//a"):
             link = e.get_attribute('href')
-            avoid = False
-
-            if link is None:
-                continue
-
-            for s in shallow_filter:
-                if s in link:
-                    avoid = True
-                    break
-            if not avoid:
-                links.append(e.get_attribute('href'))
+            if link is not None:
+                raw_links.append(link)
+    links = shallow_filter(raw_links, domain)
 
     write_log(f_log,"Start checking links")
 
     all_links = list(set(links))
     links = [link for link in all_links if not link.endswith('.css') and not link.endswith('.xml')]
-    for i in range(3):
+    for i in range(10):
         try: 
+            # try to get second page items
+            raw_links = []
+            raw_links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('/product'))])
+            raw_links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//link[contains(@href, \"%s\")]" % ('/product'))])
+            raw_links.extend([i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('?product'))])
+            raw_links = shallow_filter(raw_links, domain)
+            if raw_links == []:
+                for e in driver.find_elements("xpath", "//a"):
+                    link = e.get_attribute('href')
+                    if link is not None:
+                        raw_links.append(link)
+            raw_links = shallow_filter(raw_links, domain)
+
+            links.extend(raw_links)
+            links = list(set(links))
+            
             prod_link = links[randint(0, len(links) - 1)]
             write_log(f_log,f"product : {prod_link}")
             driver.get(prod_link)
@@ -168,20 +199,40 @@ def checkout_shop(domain, driver,f_log):
                 write_log(f_log,f"Close second popup")
                 time.sleep(_sleep_time_dialog)
                 actions = ActionChains(driver)
-                actions.move_by_offset(100, 100).click().perform()
+                actions.move_by_offset(10, 20).click().perform()
                 write_log(f_log,f"Popup is closed")
             except Exception as e:
                 write_log(f_log,f"Error clicking the second popups button")
             
             time.sleep(randint(1, _sleep_time))
 
+            # try to fill out item size etc
+            write_log(f_log,f"selecting item options")
+            for select in driver.find_elements(By.XPATH, "//select"):
+                select_item = Select(select)
+                select_item.select_by_index(randint(0, len(select_item.options) - 1))
+                write_log(f_log, f"selected {select_item.options}")
+            # check for size div/spans
+            for size_elem in driver.find_elements("xpath", "//div[contains(@class, \"size-selector\")]"):
+                write_log(f_log,f"clicking on {size_elem}")
+                size_elem.click()
+            write_log(f_log,f"done selecting item options")
+
             # find cart button
-            cart_elem = search_elem(driver, '//button', ['add to cart', 'buy now', 'buy product', 'Añadir al carrito', 'Ajouter au panier', ' Aggiungi al carrello '])
+            cart_elem = search_elem(driver, '//button', ['Add to Bag', 'add to cart', 'buy now', 'buy product', 'Añadir al carrito', 'Ajouter au panier', ' Aggiungi al carrello ', 'add to bag'])
             if cart_elem:
                 write_log(f_log,f"try add to cart")
                 cart_elem.click()
                 time.sleep(_sleep_time)
                 write_log(f_log,f"product added")
+
+                # try finding the actual cart link first
+                cart_links = [i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('/cart'))]
+                
+                for l in cart_links:
+                    if 'remove' not in l:
+                        driver.get(l)
+                        break
                 break
 
             if 'amazon' in driver.current_url:
@@ -190,7 +241,6 @@ def checkout_shop(domain, driver,f_log):
         except Exception as e:
             write_log(f_log,f"An error occurce : {e}")
             pass
-
 
     # if paypal iframe exist swith to paypal iframe
     write_log(f_log,f"looking for paypal button in the product page")
@@ -241,13 +291,19 @@ def checkout_shop(domain, driver,f_log):
 
         write_log(f_log,f"flag : {flag}")
 
+    time.sleep(randint(1,2))
+    
     # proceed to checkout
     if not flag:
+        
+
         try:
             write_log(f_log,f"Looking for checkout")
-            checkout_elem = search_elem(driver, ['//button', '//a'], ['checkout', 'check out', 'view cart', 'proceed to checkout','Finalizar compra', 'Voir mon panier', 'mon panier', 'Finaliser ma commande', 'Procedi all\'acquisto', 'Vai al carrello'])
-            if checkout_elem:
-                checkout_elem.click()
+            checkout_elem = search_elem(driver, ['//button', '//a'], ['cart', 'bag', 'mybag', 'checkout', 'check out', 'view cart', 'proceed to checkout','Finalizar compra', 'Voir mon panier', 'mon panier', 'Finaliser ma commande', 'Procedi all\'acquisto', 'Vai al carrello'], False)
+            for e in checkout_elem:
+                driver.execute_script("arguments[0].click();", e)
+                time.sleep(1)
+
             time.sleep(randint(3,5))
         except Exception as e:
             write_log(f_log,f"An error occure in checkout : {e}")
@@ -527,3 +583,15 @@ if __name__ == '__main__':
     parser.add_argument('--html_file_address', type=str, help='directory to save checkoutpage', required=True)
     args = parser.parse_args()
     main(args)
+
+
+
+
+    """
+python ./app.py \
+--p_log_file_address /opt/test_mini.jsonl \
+--log_file_address /opt/test_mini.log \
+--html_file_address /opt/ \
+--screen_file_address /opt \
+--url "www.madewell.com"
+    """
