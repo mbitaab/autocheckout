@@ -427,8 +427,8 @@ def checkout_shop(domain, driver,f_log):
 
 
 def run_fc(data_pack):
-    urls = data_pack
-    my_id = 0
+    my_id,urls = data_pack
+    
     results = []
     f_log = open(args.log_file_address,"w")
     write_log(f_log,f"Hi, I\'m process number {my_id}")
@@ -516,13 +516,24 @@ def get_redirections_all(log):
                 pass
     return ref_res
 
-def perform_checkout(urls, out_file):
+def perform_checkout(urls, out_file,number_of_proc):
+    batch_size = len(urls)//number_of_proc
+    data_packs = []
+    proc_ind = 0
+    for i in range(0, len(urls), batch_size):
+        data_packs.append([
+            proc_ind,
+            urls[i:i+batch_size]
+        ])
+        proc_ind += 1
+    
+    with Pool(number_of_proc) as p:
+        results = p.map(run_fc, data_packs)
 
-    results = run_fc(urls)
-    # results = [ [r1, r2, ...], [r1, r2, ...] ... ]
     with open(out_file, 'a+') as fout:
-        for result in results:
-            fout.write(result + '\n')
+        for process_result in results:
+            for res_str in process_result:
+                fout.write(res_str + '\n')
         fout.close()
 
 def read_txt_file(fpath):
@@ -558,11 +569,11 @@ def main(args):
         df_shop['URL'] = df_shop['URL'].apply(clean_url)
 
         df_filtered = df_scam[df_scam['Label'] == 'scam'].merge(df_shop[df_shop['label'] == 'shop'], on='URL')
-        urls = df_filtered.tolist()
+        urls = df_filtered['URL'].tolist()
 
     outpath = args.p_log_file_address
        
-    perform_checkout(urls, outpath)
+    perform_checkout(urls, outpath,args.number_proc)
 
     # extract merchant IDs
     final_outpath = outpath.replace('log', 'merch-info').replace('.jsonl', '.json')
@@ -579,6 +590,7 @@ if __name__ == '__main__':
     parser.add_argument('--p_log_file_address', type=str, help='redirection file address (jsonl)', required=True)
     parser.add_argument('--screen_file_address', type=str, help='screenshot directory', required=True)
     parser.add_argument('--html_file_address', type=str, help='directory to save checkoutpage', required=True)
+    parser.add_argument('--number_proc', type=int, help='number of proc', required=False, default=1)
     args = parser.parse_args()
     main(args)
 
