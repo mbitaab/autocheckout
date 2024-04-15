@@ -189,10 +189,13 @@ def checkout_shop(domain, driver,f_log):
 
             links.extend(raw_links)
             links = list(set(links))
-            
-            prod_link = links[randint(0, len(links) - 1)]
-            write_log(f_log,f"product : {prod_link}")
-            driver.get(prod_link)
+            prod_link = []
+            if links:
+                prod_link = links[randint(0, len(links) - 1)]
+                write_log(f_log,f"product : {prod_link}")
+                driver.get(prod_link)
+            else:
+                continue
             
             try:
                 write_log(f_log,f"Close second popup")
@@ -517,7 +520,9 @@ def get_redirections_all(log):
     return ref_res
 
 def perform_checkout(urls, out_file,number_of_proc):
+    
     batch_size = len(urls)//number_of_proc
+    print(f"[*] len {len(urls)} , number_of_proc {number_of_proc} , batch_size {batch_size}")
     data_packs = []
     proc_ind = 0
     for i in range(0, len(urls), batch_size):
