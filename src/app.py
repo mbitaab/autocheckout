@@ -31,6 +31,13 @@ from datetime import datetime
 from merch_extractor import *
 from config import *
 from datetime import datetime
+<<<<<<< Updated upstream
+=======
+import os
+
+subdirectories = ['subdir1', 'subdir2', 'subdir3']  # Example subdirectories list
+base_dir = '/path/to/base/dir'  # Replace with your actual base directory
+>>>>>>> Stashed changes
 '''
 sudo docker container ls
 sudo docker attach <ID>
@@ -584,6 +591,10 @@ def main(args):
     final_outpath = outpath.replace('log', 'merch-info').replace('.jsonl', '.json')
     parse_data(outpath, final_outpath,args.html_file_address)
 
+def mkdir_if_not_exists(dir_path):
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path, exist_ok=True)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Optional app description')
@@ -597,16 +608,20 @@ if __name__ == '__main__':
     parser.add_argument('--html_file_address', type=str, help='directory to save checkoutpage', required=True)
     parser.add_argument('--number_proc', type=int, help='number of proc', required=False, default=1)
     args = parser.parse_args()
+    print("[+] start create dir")
+    directory = os.path.dirname(args.log_file_address)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Created directory: {directory}")
+    else:
+        print(f"Directory already exists: {directory}")
+    subdirectories = ['source_home', 'screenshots', 'source_checkout']
+    for subdir in subdirectories:
+        sub_path = os.path.join(directory, subdir)
+        if not os.path.exists(sub_path):
+            os.makedirs(sub_path)
+            print(f"Created subdirectory: {sub_path}")
+        else:
+            print(f"Subdirectory already exists: {sub_path}")
+
     main(args)
-
-
-
-
-    """
-python ./app.py \
---p_log_file_address /opt/test_mini.jsonl \
---log_file_address /opt/test_mini.log \
---html_file_address /opt/ \
---screen_file_address /opt \
---url "www.madewell.com"
-    """
