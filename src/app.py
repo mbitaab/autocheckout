@@ -31,13 +31,8 @@ from datetime import datetime
 from merch_extractor import *
 from config import *
 from datetime import datetime
-<<<<<<< Updated upstream
-=======
 import os
 
-subdirectories = ['subdir1', 'subdir2', 'subdir3']  # Example subdirectories list
-base_dir = '/path/to/base/dir'  # Replace with your actual base directory
->>>>>>> Stashed changes
 '''
 sudo docker container ls
 sudo docker attach <ID>
