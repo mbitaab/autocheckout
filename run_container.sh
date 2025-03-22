@@ -1,12 +1,15 @@
 #!/bin/bash
 
 docker run -d \
-    -v /mnt/ssd2/test:/app/data \
-    --network="host"  \
+    -v /mnt/raid1/data/groundtruth/test_ac:/app/data \
+    --network=app-network-scamafetcher  \
+    --name scamfetchac-$RANDOM \
+    -e SELENIUM_ADDRESS="$SELENIUM_ADDRESS" \
     ac \
     python ./src/app.py \
-    --input_bp "/app/data/domain.csv" \
-    --p_log_file_address /app/data/test_2024-03-07.jsonl \
-    --log_file_address /app/data/test_2024-03-07.log \
-    --html_file_address /app/data/ \
-    --screen_file_address /app/data/
+    --input_file /app/data/all_unq.csv \
+    --p_log_file_address /app/data/all_data.jsonl \
+    --log_file_address /app/data/ \
+    --html_file_address /app/data/source_checkout/ \
+    --number_proc 20\
+    --screen_file_address /app/data/screenshots/

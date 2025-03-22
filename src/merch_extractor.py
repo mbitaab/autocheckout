@@ -3,15 +3,16 @@ from collections import defaultdict
 import os
 import re
 import sys
+from storage.mongodb.mongo_utility import *
 
 
 def create_merch_info(domains, output_path,checkout_html_dir):
   
     res = [
-        r'"(merchantID|payerID)".+?"([A-Z0-9]{13})"',
-        r'"(merchantId|payerId)".+?"([A-Z0-9]{13})"',
-        r'"(merchantid|payerid)".+?"([A-Z0-9]{13})"',
-        r'merchant-id.+?([A-Z0-9]{13})',
+        r'"(merchantID|payerID)":"?([A-Z0-9]{13})"?',
+        r'"(merchantId|payerId)":"?([A-Z0-9]{13})"?',
+        r'"(merchantid|payerid)":"?([A-Z0-9]{13})"?',
+        r'merchant-id="?([A-Z0-9]{13})"?',
     ]
     domain_red = defaultdict()
     for domain in domains:
@@ -19,9 +20,6 @@ def create_merch_info(domains, output_path,checkout_html_dir):
 
         # look for merchant id in the source code
         source_fname = domain.replace('https://', 'https___')
-        if 'georigia' in source_fname:
-            print(source_fname)
-        
         source_path = None
 
         # open the related source path
@@ -37,8 +35,13 @@ def create_merch_info(domains, output_path,checkout_html_dir):
                         results = re.findall(r, line2)
                         if results:
                             for mid in set(results):
-                                print(f"MERCHANTID:{mid[1]}")
-                                merchant_ids[i].append(mid[1])
+                                if type(mid) is tuple and len(mid) > 1:
+                                    merchant_ids[i].append(mid[1])
+                                    print(f"MERCHANTID:{mid[1]}")
+                                elif type(mid) is str:
+                                    merchant_ids[i].append(mid)
+                                    print(f"MERCHANTID:{mid}")
+                               
             else:
                 continue
            
@@ -49,6 +52,7 @@ def create_merch_info(domains, output_path,checkout_html_dir):
                                     
 
     json.dump(domain_red, open(output_path, 'w'), indent=4)
+    return domain_red
 
 """
 Parse Redirection log and Checkout Page
@@ -72,5 +76,4 @@ def parse_data(performance_log, output_path, checkout_html_dir):
         line = line.strip()
         line_dict = json.loads(line)
         domains.append(line_dict['domain'])
-    create_merch_info(domains, output_path, checkout_html_dir)
-
+    return create_merch_info(domains, output_path, checkout_html_dir)

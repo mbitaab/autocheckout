@@ -32,6 +32,8 @@ from merch_extractor import *
 from config import *
 from datetime import datetime
 import os
+from storage.dabase import Database
+from storage.mongodb.mongo_utility import *
 
 '''
 sudo docker container ls
@@ -89,8 +91,9 @@ def write_log(file,data,verbose=True):
         current_date_time=datetime.now()
         current_date_time_str = current_date_time.strftime('%Y-%m-%d %H:%M:%S')
         print(current_date_time_str+"||"+data)
-        file.write(current_date_time_str+"||"+data+"\n")
-        file.flush()
+        if file:
+            file.write(current_date_time_str+"||"+data+"\n")
+            file.flush()
 
 def search_elem(driver, xpath_str, text_list, single=True):
     res = []
@@ -125,16 +128,33 @@ def search_elem(driver, xpath_str, text_list, single=True):
                             res.append(elem)            
     return None if single else res
 
+def clean_url(url):
+    # Remove http:// or https://
+    url = re.sub(r'^https?:\/\/', '', url)
+    # Remove www.
+    url = re.sub(r'^www\.', '', url)
+    return url
+
 def shallow_filter(raw_links, domain):
     # shallow filter on urls
+    domain = clean_url(domain)
     links = []
-    shallow_filter = ['/search', '/story', '/live', '/help', '/email', '/account', '/cookie', '/about', '/cart', '/track', '/contact', '/privacy', '/policy', '/terms', '/refund', '/login', '/bag']
+    shallow_filter = ['/search', '/story', '/live', '/help', '/email', '/account', '/cookie', '/about', '/cart', 
+                      '/track', '/contact',  '/ privacy', '/policy', '/terms', '/refund', '/login', '/bag', '/faq', 
+                      '/support', '/customer-service', '/returns', '/shipping', '/signup', '/register', '/forgot-password', 
+                      '/profile', '/legal', '/disclaimer', '/news', '/events', '/blog'
+                    ]
     for link in raw_links:
         avoid = False
         for s in shallow_filter:
             if s in link:
                 avoid = True
                 break
+
+        # shallow filter for product category 
+        if 'category' in link or 'product-category' in link:
+            avoid = True
+
         if not avoid and domain in link:
             links.append(link)
     return links
@@ -203,7 +223,7 @@ def checkout_shop(domain, driver,f_log):
                 write_log(f_log,f"Close second popup")
                 time.sleep(_sleep_time_dialog)
                 actions = ActionChains(driver)
-                actions.move_by_offset(10, 20).click().perform()
+                actions.move_by_offset(2, 2).click().perform()
                 write_log(f_log,f"Popup is closed")
             except Exception as e:
                 write_log(f_log,f"Error clicking the second popups button")
@@ -213,30 +233,31 @@ def checkout_shop(domain, driver,f_log):
             # try to fill out item size etc
             write_log(f_log,f"selecting item options")
             for select in driver.find_elements(By.XPATH, "//select"):
-                select_item = Select(select)
-                select_item.select_by_index(randint(0, len(select_item.options) - 1))
-                write_log(f_log, f"selected {select_item.options}")
+                try:
+                    select_item = Select(select)
+                    select_item.select_by_index(randint(0, len(select_item.options) - 1))
+                    write_log(f_log, f"selected {select_item.options}")
+                except:
+                    pass
             # check for size div/spans
             for size_elem in driver.find_elements("xpath", "//div[contains(@class, \"size-selector\")]"):
-                write_log(f_log,f"clicking on {size_elem}")
-                size_elem.click()
+                try:
+                    write_log(f_log,f"clicking on {size_elem}")
+                    size_elem.click()
+                except:
+                    pass
             write_log(f_log,f"done selecting item options")
 
             # find cart button
-            cart_elem = search_elem(driver, '//button', ['Add to Bag', 'add to cart', 'buy now', 'buy product', 'Añadir al carrito', 'Ajouter au panier', ' Aggiungi al carrello ', 'add to bag'])
+            cart_elem = search_elem(driver, '//button', ['Add to Bag', 'add to cart', 'buy now', 'buy product', 'Añadir al carrito', 
+                                                         'Ajouter au panier', ' Aggiungi al carrello ', 'add to bag', 'add to basket', 
+                                                         'purchase', 'order now', 'get it now', 'shop now',  'add item', 'add this item'
+                                                        ])
             if cart_elem:
                 write_log(f_log,f"try add to cart")
                 cart_elem.click()
                 time.sleep(_sleep_time)
                 write_log(f_log,f"product added")
-
-                # try finding the actual cart link first
-                cart_links = [i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('/cart'))]
-                
-                for l in cart_links:
-                    if 'remove' not in l:
-                        driver.get(l)
-                        break
                 break
 
             if 'amazon' in driver.current_url:
@@ -251,6 +272,7 @@ def checkout_shop(domain, driver,f_log):
     write_log(f_log,f"first, swith to paypal iframe if exists")
     driver.switch_to.default_content()
     iframes = driver.find_elements("xpath", "//iframe[contains(@name, 'paypal') or contains(@id, 'paypal')]")
+    print(iframes)
     if iframes:
         for iframe in iframes:
             try:
@@ -261,6 +283,14 @@ def checkout_shop(domain, driver,f_log):
             except Exception as e:
                 write_log(f_log,f"An error occure in swith to paypal iframe : {e}")
                 pass
+
+    # try finding the actual cart link first
+    cart_links = [i.get_attribute('href') for i in driver.find_elements("xpath", "//a[contains(@href, \"%s\")]" % ('/cart'))]
+    
+    for l in cart_links:
+        if 'remove' not in l:
+            driver.get(l)
+            break
 
     # try to find and click paypal button
     if not flag:
@@ -299,23 +329,59 @@ def checkout_shop(domain, driver,f_log):
     
     # proceed to checkout
     if not flag:
-        
-
-        try:
-            write_log(f_log,f"Looking for checkout")
-            checkout_elem = search_elem(driver, ['//button', '//a'], ['cart', 'bag', 'mybag', 'checkout', 'check out', 'view cart', 'proceed to checkout','Finalizar compra', 'Voir mon panier', 'mon panier', 'Finaliser ma commande', 'Procedi all\'acquisto', 'Vai al carrello'], False)
-            for e in checkout_elem:
+        write_log(f_log,f"Looking for checkout")
+        checkout_elem = search_elem(driver, ['//button', '//a'], ['proceed to checkout', 'checkout', 'check out' ,'Finalizar compra', 'Voir mon panier', 'mon panier', 
+                                                                  'Finaliser ma commande', 'Procedi all\'acquisto', 'Vai al carrello',  'proceed with purchase', 'complete purchase', 
+                                                                  'finish order', 'review order', 'proceed to payment', 'confirm order', 'complete order'], False)
+        for e in checkout_elem:
+            try:
                 driver.execute_script("arguments[0].click();", e)
                 time.sleep(1)
+            except Exception as ex:
+                write_log(f_log,f"An error occure in checkout: {e}")
+                continue
 
-            time.sleep(randint(3,5))
-        except Exception as e:
-            write_log(f_log,f"An error occure in checkout : {e}")
-
+    if not flag:
+        for i in range(1):
+            try:
+                all_inputs = driver.find_elements("xpath", '//input')
+                for inp in all_inputs:
+                    try:
+                        for k, v in keys.items():
+                            if k in inp.get_attribute('id').lower() or k in inp.get_attribute('name').lower():
+                                inp.clear()
+                                inp.send_keys(info[v])
+                    except Exception as e:
+                        write_log(f_log,f"internal error in filling form : {e}")
+                        continue
+                    
+                all_selects = driver.find_elements(By.XPATH, "//select")
+                for select in all_selects:
+                    select_ok = Select(select)
+                    if 'state' in select.get_attribute('name').lower() or 'zone' in select.get_attribute('name').lower():
+                        select_ok.select_by_value(info['state'])
+                    elif 'country' in select.get_attribute('name').lower():
+                        select_ok.select_by_value(info['country'])
+            except Exception as ex:
+                write_log(f_log,f"Error : {ex}")
+            finally:
+                time.sleep(_sleep_time + 3)
+                # special form of PayPal 
+            write_log(f_log,f"Find paypal span")
+            try:
+                possible_paypal_chks = ["//span[contains(text(), 'PayPal')]", "//span[contains(text(), 'paypal')]"]
+                for chk in possible_paypal_chks:
+                    elems = driver.find_elements("xpath", chk)
+                    if elems:
+                        for e in elems:
+                            e.click()
+                            write_log(f_log,f"click paypal span btn")
+            except Exception as ex:
+                write_log(f_log,f"Error : {ex}")
 
     if not flag:
         write_log(f_log,f"Start looking paypal button at checkout page")
-        for paypal_filter in ['//img[contains(@alt, "PayPal")]', '//div[contains(@role, "link")]', '//div[contains(@class, "paypal-button-number-0")]', '//a[contains(@href, "paypal")]', '//div[contains(@class, "paypal")]']:
+        for paypal_filter in ['//img[contains(@class, "paypal-button-logo")]', '//div[contains(@role, "link")]', '//div[contains(@class, "paypal-button-number-0")]', '//a[contains(@href, "paypal")]', '//div[contains(@class, "paypal")]', '//img[contains(@class, "paypal-logo")]']:
                 try:
                     paypal_buttons = driver.find_elements("xpath", paypal_filter)
                     for btn in paypal_buttons:
@@ -343,79 +409,44 @@ def checkout_shop(domain, driver,f_log):
                 except Exception as e:
                     write_log(f_log,f"error in Filter: {e}")
                     pass
-        write_log(f_log,f"Not found paypal yet , fill the form")
+        write_log(f_log,f"Paypal first try:" + str(flag))
 
     if not flag:
-        for i in range(1):
-            try:
-                all_inputs = driver.find_elements("xpath", '//input')
-                for inp in all_inputs:
-                    try:
-                        for k, v in keys.items():
-                            if k in inp.get_attribute('id').lower() or k in inp.get_attribute('name').lower():
-                                inp.clear()
-                                inp.send_keys(info[v])
-                    except Exception as e:
-                        write_log(f_log,f"internal error in filling form : {e}")
-                        break
-                    
-                all_selects = driver.find_elements(By.XPATH, "//select")
-                for select in all_selects:
-                    select_ok = Select(select)
-                    if 'state' in select.get_attribute('name').lower() or 'zone' in select.get_attribute('name').lower():
-                        select_ok.select_by_value(info['state'])
-                    elif 'country' in select.get_attribute('name').lower():
-                        select_ok.select_by_value(info['country'])
-            except Exception as ex:
-                write_log(f_log,f"Error : {ex}")
-            finally:
-                time.sleep(_sleep_time)
-
-        # special form of PayPal 
-            write_log(f_log,f"Find paypal span")
-            try:
-                possible_paypal_chks = ["//span[contains(text(), 'PayPal')]", "//span[contains(text(), 'paypal')]"]
-                for chk in possible_paypal_chks:
-                    elems = driver.find_elements("xpath", chk)
-                    if elems:
-                        for e in elems:
-                            e.click()
-                            write_log(f_log,f"click paypal span btn")
-            except Exception as ex:
-                write_log(f_log,f"Error : {ex}")
-                    
-
-    if not flag:
+        write_log(f_log,f"Second try")
         # perform general checkout
-        for chk in ["//form[contains(@id, 'checkout')]", "//form[contains(@type, 'submit')]"]:
-            elems = driver.find_elements("xpath", chk)
-            if elems:
-                e[0].submit()
-                flag = True
-                break
+        for chk in ["//form[contains(@name, 'checkout')]", "//form[contains(@id, 'checkout')]", "//form[contains(@type, 'submit')]"]:
+            try:
+                elems = driver.find_elements("xpath", chk)
+                if elems:
+                    elems[0].submit()
+                    flag = True
+                    break
+            except Exception as e:
+                write_log(f_log,f"second try error: {e}")
+                pass
             
     if not flag:
-        s = """var form = document.querySelector("form[id*=checkout]");
-        if (form) { form.submit(); }"""
-        driver.execute_script(s) 
-
-        
-        driver.switch_to.default_content()
-        if not flag and driver.find_elements("xpath", "//iframe"):
-            write_log(f_log,f"looking for iframe")
-            for iframe in driver.find_elements("xpath", "//iframe"):
-                try:
-                    driver.switch_to.frame(iframe)
-                    jq = 'document.querySelectorAll(\'[role="link"]\').forEach(function (el){el.click();});'
-                    driver.execute_script(jq)
-                except Exception as ex:
-                    write_log(f_log,f"erro in looking for iframe {ex}")
-                    pass
+        for chk in ["form[name*=checkout]", "form[id*=checkout]"]:
+            s = """var form = document.querySelector("{CHK}");
+            if (form) { form.submit(); }""".replace('{CHK}', chk)
+            driver.execute_script(s) 
+            write_log(f_log,f"Third try: ", s)
+            driver.switch_to.default_content()
+            if not flag and driver.find_elements("xpath", "//iframe"):
+                write_log(f_log,f"looking for iframe")
+                for iframe in driver.find_elements("xpath", "//iframe"):
+                    try:
+                        driver.switch_to.frame(iframe)
+                        jq = 'document.querySelectorAll(\'[role="link"]\').forEach(function (el){el.click();});'
+                        driver.execute_script(jq)
+                    except Exception as ex:
+                        write_log(f_log,f"error in looking for iframe {ex}")
+                        pass
                         
         write_log(f_log,f"flag : {flag}")
 
     
-    time.sleep(_sleep_time)
+    time.sleep(8)
     write_log(f_log,f"finally ...")
     # -------------------------------------------------
     log_entries = []
@@ -435,7 +466,7 @@ def run_fc(data_pack):
     my_id,urls = data_pack
     
     results = []
-    f_log = open(args.log_file_address,"w")
+    f_log = open(args.log_file_address + 'logs/log_' + str(my_id) + '.log',"w")
     write_log(f_log,f"Hi, I\'m process number {my_id}")
     iterator = tqdm(urls) if my_id == 0 else urls
     for domain in iterator:
@@ -467,6 +498,9 @@ def run_fc(data_pack):
                 write_log(f_log,f"final domain : {domain}")
                 try:
                     driver.get(domain)
+
+                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
                     write_log(f_log,f"domain get")
                 except Exception as e:
                     write_log(f_log,f"Error in get domina: {e}")
@@ -523,7 +557,7 @@ def get_redirections_all(log):
 
 def perform_checkout(urls, out_file,number_of_proc):
     
-    batch_size = len(urls)//number_of_proc
+    batch_size = max(1,len(urls)//number_of_proc)
     print(f"[*] len {len(urls)} , number_of_proc {number_of_proc} , batch_size {batch_size}")
     data_packs = []
     proc_ind = 0
@@ -551,6 +585,27 @@ def read_txt_file(fpath):
             out_list.append(line.strip())
     return out_list
 
+def read_csv_file(filepath):
+    df = pd.read_csv(filepath)
+    
+    # Check if the 'Label' column exists
+    if 'Label' in df.columns:
+        labels = df['Label']
+        data = df.drop(columns=['Label'])
+        return data, labels
+    else:
+        return df, None
+    
+def get_label_for_url(url_value, data, labels):
+    if labels is not None and 'URL' in data.columns:
+        row_index = data[data['URL'] == url_value].index
+        if not row_index.empty:
+            return 1 if labels.iloc[row_index[0]] != 0 else 0
+        else:
+            return None
+    else:
+        return None
+
 def clean_url(url):
     # Regular expression pattern to match and remove the desired prefixes
     pattern = re.compile(r'^(http:\/\/|https:\/\/|www\.)+')
@@ -558,33 +613,46 @@ def clean_url(url):
     cleaned_url = re.sub(pattern, '', url)
     return cleaned_url
 
+def dump_list_to_file(_list,file_path):
+    with open(file_path,'w') as file:
+        for item in _list:
+            file.write(f"{item} \n")
+        file.flush()
+
+
 def main(args):
 
+    mongo_uri = f"mongodb://{mongo_username}:{mongo_password}@{mongo_host}:{mongo_port}/{mongo_db}?authSource={mongo_db}"
+    database = Database.instance()
+    print(mongo_uri)
+    database.create_connection(mongo_uri)
     urls= []
 
     if args.url:
         urls.append(args.url)
 
-    elif args.input_bp and args.input_ec == None:
-        urls = read_txt_file(args.input_bp)
-
-    elif args.input_bp and args.input_ec:
-
-        df_scam = pd.read_csv(args.input_bp)
-        df_scam['URL'] = df_scam['URL'].apply(clean_url)
-        df_shop = pd.read_csv(args.input_ec)
-        df_shop['URL'] = df_shop['URL'].apply(clean_url)
-
-        df_filtered = df_scam[df_scam['Label'] == 'scam'].merge(df_shop[df_shop['label'] == 'shop'], on='URL')
-        urls = df_filtered['URL'].tolist()
+    elif args.input_file:
+        data, labels = read_csv_file(args.input_file)
+        urls = data['URL'].tolist()
 
     outpath = args.p_log_file_address
-       
-    perform_checkout(urls, outpath,args.number_proc)
 
-    # extract merchant IDs
-    final_outpath = outpath.replace('log', 'merch-info').replace('.jsonl', '.json')
-    parse_data(outpath, final_outpath,args.html_file_address)
+    if urls and len(urls) > 0:
+        if args.filteredlist_log:
+            dump_list_to_file(urls,args.filteredlist_log)
+        perform_checkout(urls, outpath, args.number_proc)
+        # extract merchant IDs
+        final_outpath = outpath.replace('log', 'merch-info').replace('.jsonl', '.json')
+        m_data = parse_data(outpath, final_outpath,args.html_file_address)
+        if args.save_db and args.save_db == "yes" and m_data:
+            for url, details in m_data.items():
+                print("URL:", url)
+                unique_values = set()
+                for idx, merch_ids in details['merch_id'].items():
+                    unique_values.update(merch_ids)
+                for value in unique_values:
+                    if len(value)>1:
+                        save_merchant(_domain=clean_url(url), _merchant_id=value, _organizitaion="N/A", _scam=1)
 
 def mkdir_if_not_exists(dir_path):
     if not os.path.exists(dir_path):
@@ -594,14 +662,16 @@ def mkdir_if_not_exists(dir_path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Optional app description')
 
-    parser.add_argument('--input_bp', type=str, help='input containing bp results', required=False)
-    parser.add_argument('--input_ec', type=str, help='input containing shopping classifier result', required=False)
+    parser.add_argument('--input_file', type=str, help='input containing bp results', required=False)
     parser.add_argument('--url', type=str, help='URL to checkout , do not need to set bp and ec if you set URL', required=False)
     parser.add_argument('--log_file_address', type=str, help='log file address', required=True)
     parser.add_argument('--p_log_file_address', type=str, help='redirection file address (jsonl)', required=True)
     parser.add_argument('--screen_file_address', type=str, help='screenshot directory', required=True)
     parser.add_argument('--html_file_address', type=str, help='directory to save checkoutpage', required=True)
     parser.add_argument('--number_proc', type=int, help='number of proc', required=False, default=1)
+    parser.add_argument('--filteredlist_log', type=str, help='filteredlist_log', required=False)
+    parser.add_argument('--save_db', type=str, help='save_db', required=False , default="yes")
+
     args = parser.parse_args()
     print("[+] start create dir")
     directory = os.path.dirname(args.log_file_address)
@@ -610,7 +680,7 @@ if __name__ == '__main__':
         print(f"Created directory: {directory}")
     else:
         print(f"Directory already exists: {directory}")
-    subdirectories = ['source_home', 'screenshots', 'source_checkout']
+    subdirectories = ['source_home', 'screenshots', 'source_checkout', 'logs']
     for subdir in subdirectories:
         sub_path = os.path.join(directory, subdir)
         if not os.path.exists(sub_path):
